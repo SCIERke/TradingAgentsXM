@@ -248,6 +248,86 @@ ta = TradingAgentsGraph(config=config)
 _, decision = ta.propagate("NVDA", "2026-01-15")
 ```
 
+## Autonomous Trade Execution
+
+The `trade` command runs the full agent analysis pipeline and—optionally—executes a real or simulated trade, monitors the position until SL/TP is hit, sends Telegram alerts, and serves a live dashboard you can open from your phone.
+
+```bash
+tradingagents trade EURUSD
+```
+
+### Quick start (Paper Trade, no setup required)
+
+```bash
+tradingagents trade EURUSD
+# Q1 → Paper Trade
+# Q2 → Human-in-loop  (or No Brain Mode to skip approval)
+```
+
+The agent analyses the pair, shows its decision, and asks for confirmation before placing a simulated order. Position is monitored in the background; closing on SL/TP is logged to `~/.tradingagents/paper_positions.json`.
+
+Works for forex pairs (`EURUSD`, `GBPJPY`, …) and US stocks (`AAPL`, `NVDA`, …). The instrument type is detected automatically from the ticker format.
+
+### Broker options
+
+| Broker | Platform | How it works |
+|---|---|---|
+| **Paper Trade** | Mac + Windows | Simulated prices via yfinance. No account needed. |
+| **MT5 via Wine** | Mac (Whisky) | File bridge — Python writes `~/mt5_bridge/order.json`; MQL5 EA inside MT5 executes the trade and writes back `status.json`. |
+| **MT5 Direct** | Windows only | Uses the native `MetaTrader5` Python library. |
+
+### Oversight modes
+
+| Mode | Behaviour |
+|---|---|
+| **Human-in-loop** | Decision is displayed; you type Y/N before the order is placed. |
+| **No Brain Mode** | Executes immediately after the risk guard passes. Telegram alert is sent. |
+
+The risk guard always runs regardless of mode — it blocks new orders if `max_open_positions` is already reached or the action is `FLAT`.
+
+### Dashboard
+
+A FastAPI dashboard starts automatically at `http://localhost:8080` with open positions, closed trade history, and decision log. It auto-refreshes every 30 seconds.
+
+To access it from your phone, expose it with [ngrok](https://ngrok.com):
+
+```bash
+ngrok http 8080
+```
+
+### Telegram alerts
+
+Add your bot token and chat ID to `.env`:
+
+```bash
+TELEGRAM_BOT_TOKEN=your_token_here
+TELEGRAM_CHAT_ID=your_chat_id_here
+```
+
+You will receive a message when a position opens and another when it closes (with pip P&L and reason).
+
+### MT5 via Wine setup (Mac, one-time)
+
+1. Install [Whisky](https://whisky.app) (free Wine wrapper for Mac).
+2. Create a bottle → install MT5 from the XM website inside it.
+3. Copy `mql5/TradingAgentsEA.mq5` into the MT5 `MQL5/Experts/` folder.
+4. Open MetaEditor (F4 in MT5), open the EA, press F7 to compile.
+5. Attach the EA to any chart, enable **Allow live trading**, and set the `BRIDGE_PATH` input to the Windows path of your bridge folder (e.g. `C:\users\user\mt5_bridge` — this maps to `~/mt5_bridge` inside Wine).
+6. Add `MT5_BRIDGE_PATH=~/mt5_bridge` to `.env`.
+
+After this one-time setup, `tradingagents trade EURUSD` → **MT5 via Wine** will route orders directly through your XM account.
+
+### Configuration
+
+Key trade-related fields in `DEFAULT_CONFIG` (override via `config=`):
+
+| Key | Default | Description |
+|---|---|---|
+| `lot_size` | `0.01` | Lot size per trade |
+| `sl_pips` | `50` | Stop-loss distance in pips |
+| `tp_pips` | `100` | Take-profit distance in pips |
+| `max_open_positions` | `1` | Risk guard limit |
+
 ## Contributing
 
 We welcome contributions from the community! Whether it's fixing a bug, improving documentation, or suggesting a new feature, your input helps make this project better. If you are interested in this line of research, please consider joining our open-source financial AI research community [Tauric Research](https://tauric.ai/).
