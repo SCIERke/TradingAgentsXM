@@ -39,6 +39,10 @@ app = typer.Typer(
     add_completion=True,  # Enable shell completion
 )
 
+# Register autonomous trade command
+from cli.trade import trade
+app.command(name="trade")(trade)
+
 
 # Create a deque to store recent messages with a maximum length
 class MessageBuffer:

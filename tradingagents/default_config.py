@@ -33,6 +33,11 @@ DEFAULT_CONFIG = {
     # In forex mode default analysts become ["market", "news", "macro"] and
     # the output uses Long/Flat/Short instead of Buy/Hold/Sell.
     "instrument_type": "stock",
+    # Execution / broker settings (used by `tradingagents trade`)
+    "lot_size": 0.01,            # Default lot size per trade
+    "sl_pips": 50,               # Stop-loss distance in pips
+    "tp_pips": 100,              # Take-profit distance in pips
+    "max_open_positions": 1,     # Risk guard: block new trades if this many are already open
     # Output language for analyst reports and final decision
     # Internal agent debate stays in English for reasoning quality
     "output_language": "English",

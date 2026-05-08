@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TradingAgents Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f1117; color: #e2e8f0; padding: 20px; }
+    h1 { font-size: 1.4rem; margin-bottom: 4px; color: #7dd3fc; }
+    .subtitle { font-size: 0.8rem; color: #64748b; margin-bottom: 24px; }
+    h2 { font-size: 1rem; color: #94a3b8; margin: 20px 0 10px; border-bottom: 1px solid #1e293b; padding-bottom: 6px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th { text-align: left; padding: 8px 12px; background: #1e293b; color: #94a3b8; font-weight: 600; }
+    td { padding: 8px 12px; border-bottom: 1px solid #1e293b; }
+    tr:hover td { background: #1e293b44; }
+    .positive { color: #4ade80; }
+    .negative { color: #f87171; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+    .badge-long { background: #14532d; color: #4ade80; }
+    .badge-short { background: #7f1d1d; color: #f87171; }
+    .badge-flat { background: #1e293b; color: #94a3b8; }
+    .badge-yes { background: #14532d; color: #4ade80; }
+    .badge-no  { background: #1e293b; color: #94a3b8; }
+    .empty { color: #475569; font-style: italic; padding: 12px; }
+    #updated { font-size: 0.75rem; color: #475569; text-align: right; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>TradingAgents Dashboard</h1>
+  <div class="subtitle">Auto-refreshes every 30 seconds</div>
+
+  <h2>Open Positions</h2>
+  <table id="positions-table">
+    <thead><tr>
+      <th>ID</th><th>Pair</th><th>Direction</th><th>Lots</th>
+      <th>Open Price</th><th>SL</th><th>TP</th><th>Broker</th>
+    </tr></thead>
+    <tbody id="positions-body"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
+  </table>
+
+  <h2>Closed Trades</h2>
+  <table>
+    <thead><tr>
+      <th>Pair</th><th>Direction</th><th>Open</th><th>Close</th><th>Pips</th><th>Reason</th><th>Closed At</th>
+    </tr></thead>
+    <tbody id="closed-body"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+  </table>
+
+  <h2>Decision History</h2>
+  <table>
+    <thead><tr>
+      <th>Ticker</th><th>Decision</th><th>Executed</th><th>Time</th>
+    </tr></thead>
+    <tbody id="decisions-body"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+  </table>
+
+  <div id="updated"></div>
+
+  <script>
+    function dirBadge(d) {
+      const cl = d === 'LONG' ? 'badge-long' : d === 'SHORT' ? 'badge-short' : 'badge-flat';
+      return `<span class="badge ${cl}">${d}</span>`;
+    }
+    function pipsClass(p) { return p >= 0 ? 'positive' : 'negative'; }
+
+    async function refresh() {
+      try {
+        const r = await fetch('/api/status');
+        const d = await r.json();
+
+        // Open positions
+        const pb = document.getElementById('positions-body');
+        if (!d.open_positions || d.open_positions.length === 0) {
+          pb.innerHTML = '<tr><td colspan="8" class="empty">No open positions</td></tr>';
+        } else {
+          pb.innerHTML = d.open_positions.map(p => `<tr>
+            <td>${p.order_id}</td>
+            <td><b>${p.pair}</b></td>
+            <td>${dirBadge(p.action)}</td>
+            <td>${p.lots}</td>
+            <td>${p.open_price.toFixed(5)}</td>
+            <td>${p.sl_price.toFixed(5)}</td>
+            <td>${p.tp_price.toFixed(5)}</td>
+            <td>${p.broker}</td>
+          </tr>`).join('');
+        }
+
+        // Closed trades
+        const cb = document.getElementById('closed-body');
+        if (!d.closed_trades || d.closed_trades.length === 0) {
+          cb.innerHTML = '<tr><td colspan="7" class="empty">No closed trades yet</td></tr>';
+        } else {
+          cb.innerHTML = d.closed_trades.slice(0, 20).map(t => `<tr>
+            <td><b>${t.pair}</b></td>
+            <td>${dirBadge(t.action)}</td>
+            <td>${t.open_price.toFixed(5)}</td>
+            <td>${t.close_price.toFixed(5)}</td>
+            <td class="${pipsClass(t.pips)}">${t.pips > 0 ? '+' : ''}${t.pips.toFixed(1)}</td>
+            <td>${t.reason}</td>
+            <td>${t.closed_at ? t.closed_at.slice(0,19).replace('T',' ') : ''}</td>
+          </tr>`).join('');
+        }
+
+        // Decisions
+        const db = document.getElementById('decisions-body');
+        if (!d.decisions || d.decisions.length === 0) {
+          db.innerHTML = '<tr><td colspan="4" class="empty">No decisions yet</td></tr>';
+        } else {
+          db.innerHTML = d.decisions.slice(0, 20).map(dec => `<tr>
+            <td><b>${dec.ticker}</b></td>
+            <td>${dec.decision.slice(0, 60)}${dec.decision.length > 60 ? '…' : ''}</td>
+            <td><span class="badge ${dec.executed ? 'badge-yes' : 'badge-no'}">${dec.executed ? 'Yes' : 'Skipped'}</span></td>
+            <td>${dec.timestamp ? dec.timestamp.slice(0,19).replace('T',' ') : ''}</td>
+          </tr>`).join('');
+        }
+
+        document.getElementById('updated').textContent =
+          'Last updated: ' + new Date().toLocaleTimeString();
+      } catch(e) {
+        console.error('Refresh failed', e);
+      }
+    }
+
+    refresh();
+    setInterval(refresh, 30000);
+  </script>
+</body>
+</html>
