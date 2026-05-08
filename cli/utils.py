@@ -9,13 +9,23 @@ from tradingagents.llm_clients.model_catalog import get_model_options
 console = Console()
 
 TICKER_INPUT_EXAMPLES = "Examples: SPY, CNC.TO, 7203.T, 0700.HK"
+FOREX_TICKER_EXAMPLES = "Examples: EURUSD, GBPUSD, USDJPY, AUDUSD"
 
-ANALYST_ORDER = [
+ANALYST_ORDER_STOCK = [
     ("Market Analyst", AnalystType.MARKET),
     ("Social Media Analyst", AnalystType.SOCIAL),
     ("News Analyst", AnalystType.NEWS),
     ("Fundamentals Analyst", AnalystType.FUNDAMENTALS),
 ]
+
+ANALYST_ORDER_FOREX = [
+    ("Market Analyst (Technicals)", AnalystType.MARKET),
+    ("News Analyst", AnalystType.NEWS),
+    ("Macro Analyst (Interest Rates / Macro)", AnalystType.MACRO),
+]
+
+# Keep ANALYST_ORDER as the stock default for backwards compatibility
+ANALYST_ORDER = ANALYST_ORDER_STOCK
 
 
 def get_ticker() -> str:
@@ -76,12 +86,28 @@ def get_analysis_date() -> str:
     return date.strip()
 
 
-def select_analysts() -> List[AnalystType]:
+def ask_instrument_type() -> str:
+    """Ask user to choose between stock and forex mode."""
+    choice = questionary.select(
+        "Select Instrument Type:",
+        choices=[
+            questionary.Choice("Stock / ETF  (BUY / HOLD / SELL)", value="stock"),
+            questionary.Choice("Forex       (LONG / FLAT / SHORT)", value="forex"),
+        ],
+    ).ask()
+    if not choice:
+        console.print("\n[red]No instrument type selected. Exiting...[/red]")
+        exit(1)
+    return choice
+
+
+def select_analysts(instrument_type: str = "stock") -> List[AnalystType]:
     """Select analysts using an interactive checkbox."""
+    order = ANALYST_ORDER_FOREX if instrument_type == "forex" else ANALYST_ORDER_STOCK
     choices = questionary.checkbox(
         "Select Your [Analysts Team]:",
         choices=[
-            questionary.Choice(display, value=value) for display, value in ANALYST_ORDER
+            questionary.Choice(display, value=value) for display, value in order
         ],
         instruction="\n- Press Space to select/unselect analysts\n- Press 'a' to select/unselect all\n- Press Enter when done",
         validate=lambda x: len(x) > 0 or "You must select at least one analyst.",

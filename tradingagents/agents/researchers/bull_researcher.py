@@ -1,3 +1,4 @@
+from tradingagents.agents.utils.instrument_mode import get_fundamental_report, get_fundamental_label, get_researcher_framing
 
 
 def create_bull_researcher(llm):
@@ -5,31 +6,32 @@ def create_bull_researcher(llm):
         investment_debate_state = state["investment_debate_state"]
         history = investment_debate_state.get("history", "")
         bull_history = investment_debate_state.get("bull_history", "")
-
         current_response = investment_debate_state.get("current_response", "")
+
         market_research_report = state["market_report"]
         sentiment_report = state["sentiment_report"]
         news_report = state["news_report"]
-        fundamentals_report = state["fundamentals_report"]
+        econ_report = get_fundamental_report(state)
 
-        prompt = f"""You are a Bull Analyst advocating for investing in the stock. Your task is to build a strong, evidence-based case emphasizing growth potential, competitive advantages, and positive market indicators. Leverage the provided research and data to address concerns and counter bearish arguments effectively.
+        instrument = state["company_of_interest"]
+        framing = get_researcher_framing(instrument)
+
+        prompt = f"""You are a {framing['bull_role']}. Your task is to build a strong, evidence-based case emphasising {framing['bull_focus']}. Leverage the provided research and data to {framing['bull_counter']} effectively.
 
 Key points to focus on:
-- Growth Potential: Highlight the company's market opportunities, revenue projections, and scalability.
-- Competitive Advantages: Emphasize factors like unique products, strong branding, or dominant market positioning.
-- Positive Indicators: Use financial health, industry trends, and recent positive news as evidence.
-- Bear Counterpoints: Critically analyze the bear argument with specific data and sound reasoning, addressing concerns thoroughly and showing why the bull perspective holds stronger merit.
-- Engagement: Present your argument in a conversational style, engaging directly with the bear analyst's points and debating effectively rather than just listing data.
+- Make a compelling directional case using the market, news, and economic data provided.
+- Directly address and refute the bear's last argument with specific data and sound reasoning.
+- Engage conversationally — debate the bear analyst rather than just listing facts.
 
 Resources available:
-Market research report: {market_research_report}
-Social media sentiment report: {sentiment_report}
-Latest world affairs news: {news_report}
-Company fundamentals report: {fundamentals_report}
-Conversation history of the debate: {history}
+Market/Technical report: {market_research_report}
+Sentiment report: {sentiment_report}
+Latest news: {news_report}
+{framing['action_vocab']} decision context — {get_fundamental_label()}: {econ_report}
+Debate history: {history}
 Last bear argument: {current_response}
-Use this information to deliver a compelling bull argument, refute the bear's concerns, and engage in a dynamic debate that demonstrates the strengths of the bull position.
-"""
+
+Use this information to deliver a compelling bull argument for {framing['instrument_description']}, refute the bear's concerns, and engage in a dynamic debate. Respond conversationally without special formatting."""
 
         response = llm.invoke(prompt)
 

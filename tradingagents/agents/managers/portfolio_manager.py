@@ -1,20 +1,13 @@
-"""Portfolio Manager: synthesises the risk-analyst debate into the final decision.
-
-Uses LangChain's ``with_structured_output`` so the LLM produces a typed
-``PortfolioDecision`` directly, in a single call.  The result is rendered
-back to markdown for storage in ``final_trade_decision`` so memory log,
-CLI display, and saved reports continue to consume the same shape they do
-today.  When a provider does not expose structured output, the agent falls
-back gracefully to free-text generation.
-"""
+"""Portfolio Manager: synthesises the risk-analyst debate into the final decision."""
 
 from __future__ import annotations
 
-from tradingagents.agents.schemas import PortfolioDecision, render_pm_decision
+from tradingagents.agents.schemas import get_portfolio_schema, get_portfolio_renderer
 from tradingagents.agents.utils.agent_utils import (
     build_instrument_context,
     get_language_instruction,
 )
+from tradingagents.agents.utils.instrument_mode import get_rating_scale
 from tradingagents.agents.utils.structured import (
     bind_structured,
     invoke_structured_or_freetext,
@@ -22,8 +15,6 @@ from tradingagents.agents.utils.structured import (
 
 
 def create_portfolio_manager(llm):
-    structured_llm = bind_structured(llm, PortfolioDecision, "Portfolio Manager")
-
     def portfolio_manager_node(state) -> dict:
         instrument_context = build_instrument_context(state["company_of_interest"])
 
@@ -39,6 +30,10 @@ def create_portfolio_manager(llm):
             else ""
         )
 
+        schema = get_portfolio_schema()
+        renderer = get_portfolio_renderer()
+        structured_llm = bind_structured(llm, schema, "Portfolio Manager")
+
         prompt = f"""As the Portfolio Manager, synthesize the risk analysts' debate and deliver the final trading decision.
 
 {instrument_context}
@@ -46,11 +41,7 @@ def create_portfolio_manager(llm):
 ---
 
 **Rating Scale** (use exactly one):
-- **Buy**: Strong conviction to enter or add to position
-- **Overweight**: Favorable outlook, gradually increase exposure
-- **Hold**: Maintain current position, no action needed
-- **Underweight**: Reduce exposure, take partial profits
-- **Sell**: Exit position or avoid entry
+{get_rating_scale()}
 
 **Context:**
 - Research Manager's investment plan: **{research_plan}**
@@ -67,7 +58,7 @@ Be decisive and ground every conclusion in specific evidence from the analysts.{
             structured_llm,
             llm,
             prompt,
-            render_pm_decision,
+            renderer,
             "Portfolio Manager",
         )
 

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from tradingagents.agents.schemas import ResearchPlan, render_research_plan
+from tradingagents.agents.schemas import get_research_schema, get_research_renderer
 from tradingagents.agents.utils.agent_utils import build_instrument_context
+from tradingagents.agents.utils.instrument_mode import get_rating_scale
 from tradingagents.agents.utils.structured import (
     bind_structured,
     invoke_structured_or_freetext,
@@ -11,13 +12,14 @@ from tradingagents.agents.utils.structured import (
 
 
 def create_research_manager(llm):
-    structured_llm = bind_structured(llm, ResearchPlan, "Research Manager")
-
     def research_manager_node(state) -> dict:
         instrument_context = build_instrument_context(state["company_of_interest"])
         history = state["investment_debate_state"].get("history", "")
-
         investment_debate_state = state["investment_debate_state"]
+
+        schema = get_research_schema()
+        renderer = get_research_renderer()
+        structured_llm = bind_structured(llm, schema, "Research Manager")
 
         prompt = f"""As the Research Manager and debate facilitator, your role is to critically evaluate this round of debate and deliver a clear, actionable investment plan for the trader.
 
@@ -26,13 +28,9 @@ def create_research_manager(llm):
 ---
 
 **Rating Scale** (use exactly one):
-- **Buy**: Strong conviction in the bull thesis; recommend taking or growing the position
-- **Overweight**: Constructive view; recommend gradually increasing exposure
-- **Hold**: Balanced view; recommend maintaining the current position
-- **Underweight**: Cautious view; recommend trimming exposure
-- **Sell**: Strong conviction in the bear thesis; recommend exiting or avoiding the position
+{get_rating_scale()}
 
-Commit to a clear stance whenever the debate's strongest arguments warrant one; reserve Hold for situations where the evidence on both sides is genuinely balanced.
+Commit to a clear stance whenever the debate's strongest arguments warrant one; reserve the neutral option only when evidence is genuinely balanced.
 
 ---
 
@@ -43,7 +41,7 @@ Commit to a clear stance whenever the debate's strongest arguments warrant one; 
             structured_llm,
             llm,
             prompt,
-            render_research_plan,
+            renderer,
             "Research Manager",
         )
 

@@ -28,6 +28,11 @@ DEFAULT_CONFIG = {
     # Checkpoint/resume: when True, LangGraph saves state after each node
     # so a crashed run can resume from the last successful step.
     "checkpoint_enabled": False,
+    # Instrument type: "stock" (default) or "forex"
+    # Switches analyst team, output schema, and prompt framing automatically.
+    # In forex mode default analysts become ["market", "news", "macro"] and
+    # the output uses Long/Flat/Short instead of Buy/Hold/Sell.
+    "instrument_type": "stock",
     # Output language for analyst reports and final decision
     # Internal agent debate stays in English for reasoning quality
     "output_language": "English",
@@ -42,6 +47,7 @@ DEFAULT_CONFIG = {
         "technical_indicators": "yfinance",  # Options: alpha_vantage, yfinance
         "fundamental_data": "yfinance",      # Options: alpha_vantage, yfinance
         "news_data": "yfinance",             # Options: alpha_vantage, yfinance
+        "forex_data": "yfinance",            # Forex macro data via yfinance proxy tickers
     },
     # Tool-level configuration (takes precedence over category-level)
     "tool_vendors": {

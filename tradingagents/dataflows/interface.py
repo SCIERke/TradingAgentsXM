@@ -23,6 +23,7 @@ from .alpha_vantage import (
     get_global_news as get_alpha_vantage_global_news,
 )
 from .alpha_vantage_common import AlphaVantageRateLimitError
+from .forex_data import get_forex_macro_data
 
 # Configuration and routing logic
 from .config import get_config
@@ -33,6 +34,12 @@ TOOLS_CATEGORIES = {
         "description": "OHLCV stock price data",
         "tools": [
             "get_stock_data"
+        ]
+    },
+    "forex_data": {
+        "description": "Forex macro economic data",
+        "tools": [
+            "get_forex_macro"
         ]
     },
     "technical_indicators": {
@@ -93,6 +100,10 @@ VENDOR_METHODS = {
     "get_income_statement": {
         "alpha_vantage": get_alpha_vantage_income_statement,
         "yfinance": get_yfinance_income_statement,
+    },
+    # forex_data
+    "get_forex_macro": {
+        "yfinance": get_forex_macro_data,
     },
     # news_data
     "get_news": {

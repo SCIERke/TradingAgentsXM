@@ -27,6 +27,9 @@ from pydantic import BaseModel, Field
 # ---------------------------------------------------------------------------
 # Shared rating types
 # ---------------------------------------------------------------------------
+# Stock schemas live below; forex schemas are appended at the bottom.
+# Use get_trader_schema() / get_portfolio_schema() / get_research_schema()
+# and the matching render helpers to pick the right one at runtime.
 
 
 class PortfolioRating(str, Enum):
@@ -226,3 +229,174 @@ def render_pm_decision(decision: PortfolioDecision) -> str:
     if decision.time_horizon:
         parts.extend(["", f"**Time Horizon**: {decision.time_horizon}"])
     return "\n".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# Forex schemas
+# ---------------------------------------------------------------------------
+
+
+class ForexAction(str, Enum):
+    LONG = "Long"
+    FLAT = "Flat"
+    SHORT = "Short"
+
+
+class ForexRating(str, Enum):
+    STRONG_LONG = "Strong Long"
+    LONG = "Long"
+    FLAT = "Flat"
+    SHORT = "Short"
+    STRONG_SHORT = "Strong Short"
+
+
+class ForexResearchPlan(BaseModel):
+    recommendation: ForexRating = Field(
+        description=(
+            "The directional recommendation. Exactly one of Strong Long / Long / Flat / Short / Strong Short. "
+            "Reserve Flat for genuinely balanced evidence; otherwise commit to the stronger side."
+        ),
+    )
+    rationale: str = Field(
+        description=(
+            "Conversational summary of the key macro and technical points from both sides of the debate, "
+            "ending with which arguments carried the recommendation."
+        ),
+    )
+    strategic_actions: str = Field(
+        description=(
+            "Concrete steps for the trader: entry conditions, suggested position size, "
+            "key levels to watch, and the primary risk event that could invalidate the view."
+        ),
+    )
+
+
+def render_forex_research_plan(plan: ForexResearchPlan) -> str:
+    return "\n".join([
+        f"**Recommendation**: {plan.recommendation.value}",
+        "",
+        f"**Rationale**: {plan.rationale}",
+        "",
+        f"**Strategic Actions**: {plan.strategic_actions}",
+    ])
+
+
+class ForexTraderProposal(BaseModel):
+    action: ForexAction = Field(
+        description="The transaction direction. Exactly one of Long / Flat / Short.",
+    )
+    reasoning: str = Field(
+        description=(
+            "The case for this action, anchored in the macro report, technicals, and research plan. "
+            "Two to four sentences."
+        ),
+    )
+    entry_price: Optional[float] = Field(
+        default=None,
+        description="Optional entry price for the pair (e.g. 1.0850 for EUR/USD).",
+    )
+    stop_loss: Optional[float] = Field(
+        default=None,
+        description="Optional stop-loss price level.",
+    )
+    position_sizing: Optional[str] = Field(
+        default=None,
+        description="Optional sizing guidance, e.g. '1 standard lot' or '2% risk'.",
+    )
+
+
+def render_forex_trader_proposal(proposal: ForexTraderProposal) -> str:
+    parts = [
+        f"**Action**: {proposal.action.value}",
+        "",
+        f"**Reasoning**: {proposal.reasoning}",
+    ]
+    if proposal.entry_price is not None:
+        parts.extend(["", f"**Entry Price**: {proposal.entry_price}"])
+    if proposal.stop_loss is not None:
+        parts.extend(["", f"**Stop Loss**: {proposal.stop_loss}"])
+    if proposal.position_sizing:
+        parts.extend(["", f"**Position Sizing**: {proposal.position_sizing}"])
+    parts.extend([
+        "",
+        f"FINAL TRANSACTION PROPOSAL: **{proposal.action.value.upper()}**",
+    ])
+    return "\n".join(parts)
+
+
+class ForexPortfolioDecision(BaseModel):
+    rating: ForexRating = Field(
+        description=(
+            "The final position rating. Exactly one of Strong Long / Long / Flat / Short / Strong Short."
+        ),
+    )
+    executive_summary: str = Field(
+        description=(
+            "A concise action plan: entry strategy, lot size guidance, key risk levels, "
+            "and invalidation conditions. Two to four sentences."
+        ),
+    )
+    investment_thesis: str = Field(
+        description=(
+            "Detailed reasoning from macro, technical, and news evidence. "
+            "Reference prior lessons if provided in context."
+        ),
+    )
+    price_target: Optional[float] = Field(
+        default=None,
+        description="Optional take-profit price level.",
+    )
+    time_horizon: Optional[str] = Field(
+        default=None,
+        description="Optional trade duration, e.g. 'intraday', '1-3 days', '1 week'.",
+    )
+
+
+def render_forex_pm_decision(decision: ForexPortfolioDecision) -> str:
+    parts = [
+        f"**Rating**: {decision.rating.value}",
+        "",
+        f"**Executive Summary**: {decision.executive_summary}",
+        "",
+        f"**Investment Thesis**: {decision.investment_thesis}",
+    ]
+    if decision.price_target is not None:
+        parts.extend(["", f"**Price Target**: {decision.price_target}"])
+    if decision.time_horizon:
+        parts.extend(["", f"**Time Horizon**: {decision.time_horizon}"])
+    return "\n".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# Mode-aware schema selectors
+# ---------------------------------------------------------------------------
+
+
+def get_trader_schema():
+    from tradingagents.agents.utils.instrument_mode import is_forex
+    return ForexTraderProposal if is_forex() else TraderProposal
+
+
+def get_trader_renderer():
+    from tradingagents.agents.utils.instrument_mode import is_forex
+    return render_forex_trader_proposal if is_forex() else render_trader_proposal
+
+
+def get_research_schema():
+    from tradingagents.agents.utils.instrument_mode import is_forex
+    return ForexResearchPlan if is_forex() else ResearchPlan
+
+
+def get_research_renderer():
+    from tradingagents.agents.utils.instrument_mode import is_forex
+    return render_forex_research_plan if is_forex() else render_research_plan
+
+
+def get_portfolio_schema():
+    from tradingagents.agents.utils.instrument_mode import is_forex
+    return ForexPortfolioDecision if is_forex() else PortfolioDecision
+
+
+def get_portfolio_renderer():
+    from tradingagents.agents.utils.instrument_mode import is_forex
+    return render_forex_pm_decision if is_forex() else render_pm_decision

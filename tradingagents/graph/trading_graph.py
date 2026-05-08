@@ -38,6 +38,8 @@ from tradingagents.agents.utils.agent_utils import (
     get_insider_transactions,
     get_global_news
 )
+from tradingagents.agents.utils.forex_data_tools import get_forex_macro
+from tradingagents.agents.utils.instrument_mode import is_forex
 
 from .checkpointer import checkpoint_step, clear_checkpoint, get_checkpointer, thread_id
 from .conditional_logic import ConditionalLogic
@@ -52,7 +54,7 @@ class TradingAgentsGraph:
 
     def __init__(
         self,
-        selected_analysts=["market", "social", "news", "fundamentals"],
+        selected_analysts=None,
         debug=False,
         config: Dict[str, Any] = None,
         callbacks: Optional[List] = None,
@@ -71,6 +73,13 @@ class TradingAgentsGraph:
 
         # Update the interface's config
         set_config(self.config)
+
+        # Resolve default analyst set based on instrument_type when not explicitly provided
+        if selected_analysts is None:
+            if is_forex(self.config):
+                selected_analysts = ["market", "news", "macro"]
+            else:
+                selected_analysts = ["market", "social", "news", "fundamentals"]
 
         # Create necessary directories
         os.makedirs(self.config["data_cache_dir"], exist_ok=True)
@@ -184,6 +193,13 @@ class TradingAgentsGraph:
                     get_balance_sheet,
                     get_cashflow,
                     get_income_statement,
+                ]
+            ),
+            "macro": ToolNode(
+                [
+                    # Forex macro analysis tools
+                    get_forex_macro,
+                    get_global_news,
                 ]
             ),
         }

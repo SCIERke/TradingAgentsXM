@@ -1,3 +1,4 @@
+from tradingagents.agents.utils.instrument_mode import get_fundamental_report, get_fundamental_label, get_risk_framing
 
 
 def create_conservative_debator(llm):
@@ -12,23 +13,28 @@ def create_conservative_debator(llm):
         market_research_report = state["market_report"]
         sentiment_report = state["sentiment_report"]
         news_report = state["news_report"]
-        fundamentals_report = state["fundamentals_report"]
-
+        econ_report = get_fundamental_report(state)
         trader_decision = state["trader_investment_plan"]
 
-        prompt = f"""As the Conservative Risk Analyst, your primary objective is to protect assets, minimize volatility, and ensure steady, reliable growth. You prioritize stability, security, and risk mitigation, carefully assessing potential losses, economic downturns, and market volatility. When evaluating the trader's decision or plan, critically examine high-risk elements, pointing out where the decision may expose the firm to undue risk and where more cautious alternatives could secure long-term gains. Here is the trader's decision:
+        framing = get_risk_framing()
 
+        prompt = f"""As the Conservative Risk Analyst, your primary objective is to {framing['conservative_role']}. When evaluating the trader's decision, critically examine high-risk elements and highlight where more cautious alternatives would secure long-term capital preservation.
+
+Trader's decision:
 {trader_decision}
 
-Your task is to actively counter the arguments of the Aggressive and Neutral Analysts, highlighting where their views may overlook potential threats or fail to prioritize sustainability. Respond directly to their points, drawing from the following data sources to build a convincing case for a low-risk approach adjustment to the trader's decision:
+Actively counter the arguments of the Aggressive and Neutral Analysts, highlighting where their views may overlook threats or fail to prioritise sustainability. Draw from the following data:
 
-Market Research Report: {market_research_report}
-Social Media Sentiment Report: {sentiment_report}
-Latest World Affairs Report: {news_report}
-Company Fundamentals Report: {fundamentals_report}
-Here is the current conversation history: {history} Here is the last response from the aggressive analyst: {current_aggressive_response} Here is the last response from the neutral analyst: {current_neutral_response}. If there are no responses from the other viewpoints yet, present your own argument based on the available data.
+Market/Technical Report: {market_research_report}
+Sentiment Report: {sentiment_report}
+Latest News: {news_report}
+{get_fundamental_label()}: {econ_report}
+Conversation history: {history}
+Last aggressive argument: {current_aggressive_response}
+Last neutral argument: {current_neutral_response}
 
-Engage by questioning their optimism and emphasizing the potential downsides they may have overlooked. Address each of their counterpoints to showcase why a conservative stance is ultimately the safest path for the firm's assets. Focus on debating and critiquing their arguments to demonstrate the strength of a low-risk strategy over their approaches. Output conversationally as if you are speaking without any special formatting."""
+If there are no responses yet from the other viewpoints, present your own argument based on the available data.
+Question their optimism, emphasise potential downsides, and demonstrate why a conservative stance is the safest path. Focus on debating — not just presenting data. Output conversationally without special formatting."""
 
         response = llm.invoke(prompt)
 
@@ -40,13 +46,9 @@ Engage by questioning their optimism and emphasizing the potential downsides the
             "conservative_history": conservative_history + "\n" + argument,
             "neutral_history": risk_debate_state.get("neutral_history", ""),
             "latest_speaker": "Conservative",
-            "current_aggressive_response": risk_debate_state.get(
-                "current_aggressive_response", ""
-            ),
+            "current_aggressive_response": risk_debate_state.get("current_aggressive_response", ""),
             "current_conservative_response": argument,
-            "current_neutral_response": risk_debate_state.get(
-                "current_neutral_response", ""
-            ),
+            "current_neutral_response": risk_debate_state.get("current_neutral_response", ""),
             "count": risk_debate_state["count"] + 1,
         }
 
