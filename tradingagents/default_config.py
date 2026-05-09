@@ -34,10 +34,15 @@ DEFAULT_CONFIG = {
     # the output uses Long/Flat/Short instead of Buy/Hold/Sell.
     "instrument_type": "stock",
     # Execution / broker settings (used by `tradingagents trade`)
-    "lot_size": 0.01,            # Default lot size per trade
-    "sl_pips": 50,               # Stop-loss distance in pips
-    "tp_pips": 100,              # Take-profit distance in pips
+    "lot_size": 0.01,            # Default lot size per trade (used when lot_mode="fixed")
+    "lot_mode": "fixed",         # "fixed" | "dynamic" (dynamic = % of account balance)
+    "risk_pct": 1.0,             # % of account to risk per trade (dynamic lot mode only)
+    "account_balance": 10000.0,  # Simulated account balance for dynamic lot sizing
+    "sl_pips": 50,               # Stop-loss distance in pips (used when sl_tp_mode="fixed")
+    "tp_pips": 100,              # Take-profit distance in pips (used when sl_tp_mode="fixed")
+    "sl_tp_mode": "fixed",       # "fixed" | "dynamic" (dynamic = agent decides from analysis)
     "max_open_positions": 1,     # Risk guard: block new trades if this many are already open
+    "max_analysis_cost_usd": 2.0,  # Guardrail: warn if a single analysis run exceeds this cost
     "react_interval_minutes": 240,  # AI monitor: LLM HOLD/EXIT check interval in minutes
     # Output language for analyst reports and final decision
     # Internal agent debate stays in English for reasoning quality

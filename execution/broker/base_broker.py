@@ -12,6 +12,8 @@ class Order:
     lots: float
     sl_pips: int
     tp_pips: int
+    lot_mode: str = "fixed"    # "fixed" | "dynamic"
+    risk_pct: float = 1.0      # % of account balance to risk (dynamic mode only)
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
 
 
