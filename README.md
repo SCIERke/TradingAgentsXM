@@ -248,6 +248,103 @@ ta = TradingAgentsGraph(config=config)
 _, decision = ta.propagate("NVDA", "2026-01-15")
 ```
 
+## Setup & First Trade
+
+### Step 1 — Install
+
+```bash
+git clone https://github.com/TauricResearch/TradingAgents.git
+cd TradingAgents
+
+# Create virtual environment (using uv — recommended)
+uv venv
+source .venv/bin/activate   # Mac/Linux
+# .venv\Scripts\activate   # Windows
+
+uv sync
+```
+
+Or with conda/pip:
+```bash
+conda create -n tradingagents python=3.13 && conda activate tradingagents
+pip install .
+```
+
+### Step 2 — Configure API keys
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and fill in at minimum one LLM provider key:
+
+```bash
+OPENROUTER_API_KEY=...    # recommended: access to Gemma, DeepSeek, etc.
+# or
+OPENAI_API_KEY=...
+# or
+GOOGLE_API_KEY=...
+```
+
+Optional (for Telegram alerts):
+```bash
+TELEGRAM_BOT_TOKEN=...    # from @BotFather on Telegram
+TELEGRAM_CHAT_ID=...      # your chat or group ID
+```
+
+### Step 3 — Run your first trade (Paper mode, no account needed)
+
+```bash
+tradingagents trade EURUSD
+```
+
+You will be asked 5 questions:
+
+| # | Question | Recommended for first run |
+|---|---|---|
+| Q1 | Broker | **Paper Trade** (no setup needed) |
+| Q2 | Oversight | **Human-in-loop** (approve before executing) |
+| Q3 | Monitor | **Rule-based** (SL/TP only) |
+| Q4 | Analysts | Keep defaults (auto-selected by instrument type) |
+| Q5 | Risk profile | **Conservative** (0.01 lot, 80 pip SL/TP) |
+
+The agent will analyse the pair (~20-30 LLM calls), show its decision, ask for your approval, then simulate the trade. The position monitor runs in the background until SL or TP is hit.
+
+### Step 4 — Check your trade history
+
+```bash
+tradingagents log              # last 10 runs
+tradingagents log --ticker EURUSD  # filter by pair
+```
+
+History is also visible in the web dashboard at `http://localhost:8080` while a trade is active.
+
+---
+
+### Real trading via XM + MT5 (Mac — one-time setup)
+
+To route orders into your real XM account on Mac:
+
+1. Install [Whisky](https://whisky.app) (free Wine wrapper for Mac)
+2. Create a bottle → install MT5 from [XM website](https://www.xm.com) inside it
+3. **Log into your XM account** inside MT5 (standard MT5 login — no credentials stored here)
+4. Copy `mql5/TradingAgentsEA.mq5` into MT5's `MQL5/Experts/` folder inside the bottle
+5. Open MetaEditor in MT5 (F4), open the EA file, press **F7** to compile
+6. Attach the EA to any chart → enable **Allow Live Trading** in the EA settings
+7. Set the `BRIDGE_PATH` input to the Windows-path equivalent of `~/mt5_bridge`
+   (inside Wine: `C:\users\<your_username>\mt5_bridge`)
+8. Add to `.env`:
+   ```bash
+   MT5_BRIDGE_PATH=~/mt5_bridge
+   ```
+
+After setup, select **MT5 via Wine** at Q1 and orders flow directly into your XM account.
+
+> **Windows users**: Select **MT5 Direct** at Q1 — the native MetaTrader5 Python library
+> is used directly, no Wine or file bridge needed. Ensure MT5 is running and logged in.
+
+---
+
 ## Autonomous Trade Execution
 
 The `trade` command runs the full agent analysis pipeline and—optionally—executes a real or simulated trade, monitors the position until SL/TP is hit, sends Telegram alerts, and serves a live dashboard you can open from your phone.
