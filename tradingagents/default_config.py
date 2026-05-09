@@ -38,6 +38,7 @@ DEFAULT_CONFIG = {
     "sl_pips": 50,               # Stop-loss distance in pips
     "tp_pips": 100,              # Take-profit distance in pips
     "max_open_positions": 1,     # Risk guard: block new trades if this many are already open
+    "react_interval_minutes": 240,  # AI monitor: LLM HOLD/EXIT check interval in minutes
     # Output language for analyst reports and final decision
     # Internal agent debate stays in English for reasoning quality
     "output_language": "English",

@@ -55,6 +55,14 @@
     <tbody id="decisions-body"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
   </table>
 
+  <h2>AI Monitor Events</h2>
+  <table>
+    <thead><tr>
+      <th>Pair</th><th>Decision</th><th>Confidence</th><th>Reason</th><th>Time</th>
+    </tr></thead>
+    <tbody id="monitor-body"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+  </table>
+
   <div id="updated"></div>
 
   <script>
@@ -113,6 +121,23 @@
             <td><span class="badge ${dec.executed ? 'badge-yes' : 'badge-no'}">${dec.executed ? 'Yes' : 'Skipped'}</span></td>
             <td>${dec.timestamp ? dec.timestamp.slice(0,19).replace('T',' ') : ''}</td>
           </tr>`).join('');
+        }
+
+        // Monitor events
+        const mb = document.getElementById('monitor-body');
+        if (!d.monitor_events || d.monitor_events.length === 0) {
+          mb.innerHTML = '<tr><td colspan="5" class="empty">No AI monitor events yet</td></tr>';
+        } else {
+          mb.innerHTML = d.monitor_events.slice(0, 20).map(e => {
+            const cl = e.action === 'EXIT' ? 'badge-short' : 'badge-long';
+            return `<tr>
+              <td><b>${e.pair}</b></td>
+              <td><span class="badge ${cl}">${e.action}</span></td>
+              <td>${(e.confidence * 100).toFixed(0)}%</td>
+              <td>${e.reason}</td>
+              <td>${e.timestamp ? e.timestamp.slice(0,19).replace('T',' ') : ''}</td>
+            </tr>`;
+          }).join('');
         }
 
         document.getElementById('updated').textContent =

@@ -35,6 +35,29 @@ def trade(
     if oversight is None:
         raise typer.Abort()
 
+    # ── Q3: Monitor mode ─────────────────────────────────────────────────────────
+    monitor_mode = questionary.select(
+        "Monitor mode:",
+        choices=[
+            questionary.Choice("Rule-based  (SL/TP only — no AI, free)", value="rule"),
+            questionary.Choice("AI Monitor  (LLM checks periodically — exits early if signal flips)", value="ai"),
+        ],
+    ).ask()
+    if monitor_mode is None:
+        raise typer.Abort()
+
+    react_interval = 240  # minutes
+    if monitor_mode == "ai":
+        raw = questionary.text(
+            "AI check interval in minutes:",
+            default="240",
+            validate=lambda v: v.isdigit() and int(v) > 0 or "Enter a positive integer",
+        ).ask()
+        if raw is None:
+            raise typer.Abort()
+        react_interval = int(raw)
+        console.print(f"[dim]AI monitor will check every {react_interval} min[/dim]")
+
     # ── Start dashboard ──────────────────────────────────────────────────────────
     from web.app import start_in_background
     start_in_background(port=8080)
@@ -127,8 +150,6 @@ def trade(
     web_state.add_decision(ticker.upper(), decision_text, executed=True)
 
     # ── Start position monitor ────────────────────────────────────────────────────
-    from execution.position_monitor import PositionMonitor
-
     def _on_close(result):
         web_state.remove_position(pos.order_id, result)
         notifier.send_trade_closed(result)
@@ -139,13 +160,48 @@ def trade(
             border_style="red" if result.pips < 0 else "green",
         ))
 
-    monitor = PositionMonitor(broker, pos, poll_interval=60, on_close=_on_close)
-    monitor.start()
+    if monitor_mode == "ai":
+        from execution.reactive_monitor import ReactiveMonitor
+        from tradingagents.llm_clients.factory import create_llm_client
 
-    console.print(
-        f"[dim]Position monitor running (checks every 60s). Dashboard: http://localhost:8080\n"
-        f"Press Ctrl+C to stop monitoring (position stays open in broker).[/dim]"
-    )
+        monitor_llm = create_llm_client(
+            cfg["llm_provider"],
+            cfg["quick_think_llm"],
+            base_url=cfg.get("backend_url"),
+        )
+
+        def _on_llm_check(decision):
+            emoji = "🤖 EXIT" if decision.action == "EXIT" else "🤖 HOLD"
+            console.print(
+                f"[dim]{emoji} — {decision.reason} (confidence: {decision.confidence:.0%})[/dim]"
+            )
+            web_state.add_monitor_event(
+                pos.pair, decision.action, decision.reason, decision.confidence
+            )
+            if decision.action == "EXIT":
+                notifier.send_error(
+                    f"AI Monitor: EXIT signal for {pos.pair}\n{decision.reason}"
+                )
+
+        monitor = ReactiveMonitor(
+            broker, pos, monitor_llm, decision_text,
+            react_interval=react_interval,
+            poll_interval=60,
+            on_close=_on_close,
+            on_llm_check=_on_llm_check,
+        )
+        console.print(
+            f"[dim]AI Monitor running — SL/TP every 60s, LLM check every {react_interval} min. "
+            f"Dashboard: http://localhost:8080[/dim]"
+        )
+    else:
+        from execution.position_monitor import PositionMonitor
+        monitor = PositionMonitor(broker, pos, poll_interval=60, on_close=_on_close)
+        console.print(
+            f"[dim]Rule-based monitor running (SL/TP checks every 60s). Dashboard: http://localhost:8080[/dim]"
+        )
+
+    monitor.start()
 
     # Keep main thread alive until monitor closes position or user interrupts
     try:

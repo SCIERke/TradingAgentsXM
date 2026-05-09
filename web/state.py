@@ -15,6 +15,7 @@ _state: dict[str, Any] = {
     "open_positions": [],
     "closed_trades": [],
     "decisions": [],
+    "monitor_events": [],
     "last_updated": "",
 }
 
@@ -55,6 +56,20 @@ def remove_position(order_id: str, result: TradeResult) -> None:
             "closed_at": result.closed_at,
             "reason": result.reason,
         })
+        _state["last_updated"] = datetime.now().isoformat()
+        _persist()
+
+
+def add_monitor_event(pair: str, action: str, reason: str, confidence: float) -> None:
+    with _lock:
+        _state["monitor_events"].insert(0, {
+            "pair": pair,
+            "action": action,
+            "reason": reason,
+            "confidence": round(confidence, 2),
+            "timestamp": datetime.now().isoformat(),
+        })
+        _state["monitor_events"] = _state["monitor_events"][:100]  # keep last 100
         _state["last_updated"] = datetime.now().isoformat()
         _persist()
 
