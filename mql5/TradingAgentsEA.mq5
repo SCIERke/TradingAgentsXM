@@ -13,7 +13,7 @@
 #property version   "1.00"
 #property strict
 
-input string BRIDGE_PATH = "C:\\Users\\user\\mt5_bridge"; // Path to bridge folder (use Windows path inside Wine)
+input string BRIDGE_PATH = "/Users/user/mt5_bridge"; // Full path to bridge folder (Mac: /Users/<you>/mt5_bridge  Windows: C:\Users\<you>\mt5_bridge)
 
 //--- file paths
 string ORDER_FILE;

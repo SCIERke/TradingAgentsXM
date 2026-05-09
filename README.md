@@ -323,25 +323,26 @@ History is also visible in the web dashboard at `http://localhost:8080` while a 
 
 ### Real trading via XM + MT5 (Mac — one-time setup)
 
-To route orders into your real XM account on Mac:
+MT5 has a **native Mac app** — no Wine, no emulator needed. The file bridge works with it directly.
 
-1. Install [Whisky](https://whisky.app) (free Wine wrapper for Mac)
-2. Create a bottle → install MT5 from [XM website](https://www.xm.com) inside it
-3. **Log into your XM account** inside MT5 (standard MT5 login — no credentials stored here)
-4. Copy `mql5/TradingAgentsEA.mq5` into MT5's `MQL5/Experts/` folder inside the bottle
-5. Open MetaEditor in MT5 (F4), open the EA file, press **F7** to compile
-6. Attach the EA to any chart → enable **Allow Live Trading** in the EA settings
-7. Set the `BRIDGE_PATH` input to the Windows-path equivalent of `~/mt5_bridge`
-   (inside Wine: `C:\users\<your_username>\mt5_bridge`)
-8. Add to `.env`:
+1. Download MT5 for Mac from [MetaQuotes](https://www.metatrader5.com/en/download) or the Mac App Store
+2. **Log into your XM account** inside MT5 (standard login — no credentials stored in this project)
+3. Copy `mql5/TradingAgentsEA.mq5` into MT5's `MQL5/Experts/` folder
+   - In MT5 → File → Open Data Folder → navigate to `MQL5/Experts/`
+4. Open MetaEditor in MT5 (F4), open the EA file, press **F7** to compile
+5. Attach the EA to any chart → enable **Allow Live Trading** in the EA settings
+6. Set the `BRIDGE_PATH` input to the path Python will write to (e.g. `/Users/<you>/mt5_bridge`)
+7. Add to `.env`:
    ```bash
    MT5_BRIDGE_PATH=~/mt5_bridge
    ```
 
-After setup, select **MT5 via Wine** at Q1 and orders flow directly into your XM account.
+After setup, select **MT5 File Bridge** at Q1 and orders flow directly into your XM account.
 
-> **Windows users**: Select **MT5 Direct** at Q1 — the native MetaTrader5 Python library
-> is used directly, no Wine or file bridge needed. Ensure MT5 is running and logged in.
+**How it works:** Python writes `~/mt5_bridge/order.json` → the EA inside MT5 picks it up every 2 seconds, executes the trade on your XM account, then writes `~/mt5_bridge/status.json` back. No Python ↔ MT5 library needed.
+
+> **Windows users**: You can use either **MT5 File Bridge** (same EA approach) or **MT5 Direct**
+> (native `MetaTrader5` Python library — requires MT5 to be running and logged in).
 
 ---
 
@@ -370,7 +371,7 @@ Works for forex pairs (`EURUSD`, `GBPJPY`, …) and US stocks (`AAPL`, `NVDA`, �
 | Broker | Platform | How it works |
 |---|---|---|
 | **Paper Trade** | Mac + Windows | Simulated prices via yfinance. No account needed. |
-| **MT5 via Wine** | Mac (Whisky) | File bridge — Python writes `~/mt5_bridge/order.json`; MQL5 EA inside MT5 executes the trade and writes back `status.json`. |
+| **MT5 File Bridge** | Mac + Windows | File bridge — Python writes `~/mt5_bridge/order.json`; MQL5 EA inside MT5 (native Mac/Windows app) executes the trade and writes back `status.json`. |
 | **MT5 Direct** | Windows only | Uses the native `MetaTrader5` Python library. |
 
 ### Oversight modes
@@ -403,13 +404,15 @@ TELEGRAM_CHAT_ID=your_chat_id_here
 
 You will receive a message when a position opens and another when it closes (with pip P&L and reason).
 
-### MT5 via Wine setup (Mac, one-time)
+### MT5 File Bridge setup (Mac, one-time)
 
-1. Install [Whisky](https://whisky.app) (free Wine wrapper for Mac).
-2. Create a bottle → install MT5 from the XM website inside it.
-3. Copy `mql5/TradingAgentsEA.mq5` into the MT5 `MQL5/Experts/` folder.
+MT5 has a native Mac app — no Wine or emulator needed.
+
+1. Download MT5 for Mac from [MetaQuotes](https://www.metatrader5.com/en/download) or the Mac App Store.
+2. Log into your XM account inside MT5.
+3. Copy `mql5/TradingAgentsEA.mq5` into MT5 → File → Open Data Folder → `MQL5/Experts/`.
 4. Open MetaEditor (F4 in MT5), open the EA, press F7 to compile.
-5. Attach the EA to any chart, enable **Allow live trading**, and set the `BRIDGE_PATH` input to the Windows path of your bridge folder (e.g. `C:\users\user\mt5_bridge` — this maps to `~/mt5_bridge` inside Wine).
+5. Attach the EA to any chart, enable **Allow live trading**, and set the `BRIDGE_PATH` input to `/Users/<you>/mt5_bridge`.
 6. Add `MT5_BRIDGE_PATH=~/mt5_bridge` to `.env`.
 
 After this one-time setup, `tradingagents trade EURUSD` → **MT5 via Wine** will route orders directly through your XM account.

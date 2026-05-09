@@ -12,11 +12,11 @@ def select_broker() -> BaseBroker:
 
     choices = [
         questionary.Choice("Paper Trade  (simulated, no setup required)", value="paper"),
-        questionary.Choice("MT5 via Wine  (real XM account on Mac via Whisky + file bridge)", value="mt5_file"),
+        questionary.Choice("MT5 File Bridge  (real XM account — works with native Mac/Windows MT5)", value="mt5_file"),
     ]
     if is_windows:
         choices.append(
-            questionary.Choice("MT5 Direct  (real XM account, native Windows MT5)", value="mt5_direct")
+            questionary.Choice("MT5 Direct  (real XM account, Windows Python library)", value="mt5_direct")
         )
 
     broker_key = questionary.select(
