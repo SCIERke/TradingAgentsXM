@@ -85,6 +85,12 @@ def trade(
     start_in_background(port=8080)
     console.print("[dim]Dashboard running at http://localhost:8080[/dim]")
 
+    # ── Setup journal + logger ────────────────────────────────────────────────────
+    from execution.trade_journal import TradeJournal
+    from execution.run_logger import get_run_logger
+    journal = TradeJournal()
+    run_log = get_run_logger()
+
     # ── Run analysis (with cost tracking) ────────────────────────────────────────
     from cli.stats_handler import StatsCallbackHandler
     from execution.cost_tracker import CostTracker
@@ -146,6 +152,18 @@ def trade(
             console.print("[yellow]Trade skipped by user.[/yellow]")
             from web import state as web_state
             web_state.add_decision(ticker.upper(), decision_text, executed=False)
+            # Journal the skipped run
+            journal.record(
+                ticker=ticker.upper(), instrument_type=cfg["instrument_type"],
+                broker_name=broker.name(), oversight=oversight,
+                monitor_mode=monitor_mode,
+                analysts=[a.value for a in selected],
+                profile_name=profile.get("note", "custom")[:20],
+                lot_mode=cfg.get("lot_mode", "fixed"),
+                sl_tp_mode=cfg.get("sl_tp_mode", "fixed"),
+                decision_text=decision_text, executed=False,
+                llm_stats=cost_tracker.summary(raw_stats), config=cfg,
+            )
             raise typer.Exit(0)
 
     # ── Risk guard + execute ─────────────────────────────────────────────────────
@@ -169,11 +187,24 @@ def trade(
         pos = mgr.execute(decision_text)
     except RiskGuardError as e:
         console.print(f"[yellow]Risk guard blocked:[/yellow] {e}")
+        run_log.warning("Risk guard blocked trade for %s: %s", ticker.upper(), e)
         from web import state as web_state
         web_state.add_decision(ticker.upper(), decision_text, executed=False)
+        journal.record(
+            ticker=ticker.upper(), instrument_type=cfg["instrument_type"],
+            broker_name=broker.name(), oversight=oversight,
+            monitor_mode=monitor_mode,
+            analysts=[a.value for a in selected],
+            profile_name=profile.get("note", "custom")[:20],
+            lot_mode=cfg.get("lot_mode", "fixed"),
+            sl_tp_mode=cfg.get("sl_tp_mode", "fixed"),
+            decision_text=decision_text, executed=False,
+            llm_stats=cost_tracker.summary(raw_stats), config=cfg,
+        )
         raise typer.Exit(0)
     except Exception as exc:
         console.print(f"[red]Order failed:[/red] {exc}")
+        run_log.error("Order failed for %s: %s", ticker.upper(), exc)
         from alerts.telegram_notifier import TelegramNotifier
         TelegramNotifier().send_error(f"Order failed for {ticker}: {exc}")
         raise typer.Exit(1)
@@ -187,6 +218,33 @@ def trade(
         title="Trade Opened",
         border_style="green",
     ))
+
+    # ── Journal + memory annotation ───────────────────────────────────────────────
+    run_id = journal.record(
+        ticker=ticker.upper(), instrument_type=cfg["instrument_type"],
+        broker_name=broker.name(), oversight=oversight,
+        monitor_mode=monitor_mode,
+        analysts=[a.value for a in selected],
+        profile_name=profile.get("note", "custom")[:20],
+        lot_mode=cfg.get("lot_mode", "fixed"),
+        sl_tp_mode=cfg.get("sl_tp_mode", "fixed"),
+        decision_text=decision_text, executed=True, position=pos,
+        llm_stats=cost_tracker.summary(raw_stats), config=cfg,
+    )
+
+    # Annotate memory log with actual execution details so future PM prompts
+    # know not just what was decided but whether and how it was executed.
+    try:
+        from tradingagents.agents.utils.memory import TradingMemoryLog
+        mem = TradingMemoryLog(cfg)
+        exec_note = (
+            f"{pos.action} @ {pos.open_price:.5f} | "
+            f"SL {pos.sl_price:.5f} | TP {pos.tp_price:.5f} | "
+            f"Lots {pos.lots} | Broker: {broker.name()}"
+        )
+        mem.annotate_execution(ticker.upper(), date.today().strftime("%Y-%m-%d"), exec_note)
+    except Exception as e:
+        run_log.warning("Could not annotate memory log after execution: %s", e)
 
     # ── Telegram + dashboard ──────────────────────────────────────────────────────
     from alerts.telegram_notifier import TelegramNotifier
@@ -208,6 +266,21 @@ def trade(
             title="Trade Closed",
             border_style="red" if result.pips < 0 else "green",
         ))
+        # Annotate memory log and journal with close outcome
+        try:
+            from tradingagents.agents.utils.memory import TradingMemoryLog
+            mem = TradingMemoryLog(cfg)
+            close_note = (
+                f"@ {result.close_price:.5f} | {result.pips:+.1f} pips | "
+                f"Reason: {result.reason} | {result.closed_at}"
+            )
+            mem.annotate_close(ticker.upper(), date.today().strftime("%Y-%m-%d"), close_note)
+        except Exception as e:
+            run_log.warning("Could not annotate memory log on close: %s", e)
+        try:
+            journal.annotate_close(run_id, result.close_price, result.pips, result.reason)
+        except Exception as e:
+            run_log.warning("Could not annotate journal on close: %s", e)
 
     if monitor_mode == "ai":
         from execution.reactive_monitor import ReactiveMonitor

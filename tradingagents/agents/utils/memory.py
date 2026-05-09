@@ -95,6 +95,68 @@ class TradingMemoryLog:
             parts.extend(self._format_reflection_only(e) for e in cross)
         return "\n\n".join(parts)
 
+    # --- Execution annotation (Phase A+) ---
+
+    def annotate_execution(self, ticker: str, trade_date: str, annotation: str) -> None:
+        """Append an EXECUTED line to the most recent pending entry for (ticker, date).
+
+        Uses atomic temp-file write to avoid corruption on crash.
+        No-op if the log doesn't exist or no matching pending entry is found.
+        """
+        if not self._log_path or not self._log_path.exists():
+            return
+        text = self._log_path.read_text(encoding="utf-8")
+        blocks = text.split(self._SEPARATOR)
+        pending_prefix = f"[{trade_date} | {ticker} |"
+        updated = False
+        new_blocks = []
+        for block in blocks:
+            stripped = block.strip()
+            if (
+                not updated
+                and stripped
+                and stripped.splitlines()[0].strip().startswith(pending_prefix)
+                and stripped.splitlines()[0].strip().endswith("| pending]")
+            ):
+                new_blocks.append(stripped + f"\n\nEXECUTED: {annotation}")
+                updated = True
+            else:
+                new_blocks.append(block)
+        if not updated:
+            return
+        new_text = self._SEPARATOR.join(new_blocks)
+        tmp = self._log_path.with_suffix(".tmp")
+        tmp.write_text(new_text, encoding="utf-8")
+        tmp.replace(self._log_path)
+
+    def annotate_close(self, ticker: str, trade_date: str, annotation: str) -> None:
+        """Append a CLOSED line to the most recent entry for (ticker, date) that has EXECUTED."""
+        if not self._log_path or not self._log_path.exists():
+            return
+        text = self._log_path.read_text(encoding="utf-8")
+        blocks = text.split(self._SEPARATOR)
+        pending_prefix = f"[{trade_date} | {ticker} |"
+        updated = False
+        new_blocks = []
+        for block in blocks:
+            stripped = block.strip()
+            if (
+                not updated
+                and stripped
+                and stripped.splitlines()[0].strip().startswith(pending_prefix)
+                and "EXECUTED:" in stripped
+            ):
+                new_blocks.append(stripped + f"\n\nCLOSED: {annotation}")
+                updated = True
+            else:
+                new_blocks.append(block)
+        if not updated:
+            return
+        new_text = self._SEPARATOR.join(new_blocks)
+        tmp = self._log_path.with_suffix(".tmp")
+        tmp.write_text(new_text, encoding="utf-8")
+        tmp.replace(self._log_path)
+
     # --- Update path (Phase B) ---
 
     def update_with_outcome(
